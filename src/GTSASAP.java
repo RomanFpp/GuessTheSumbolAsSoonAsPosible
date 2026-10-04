@@ -1,4 +1,4 @@
-import com.sun.xml.internal.ws.wsdl.writer.document.Import;
+//import com.sun.xml.internal.ws.wsdl.writer.document.Import;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -19,22 +19,27 @@ public class GTSASAP {
 
 
         if (userWord.length() <= 5) {
-            int countOfChances = 0;
-            long start = System.nanoTime();
-            int runs = 1000 * 1000;
+             long countOfChances = 0;
+             long start = System.nanoTime();
+             //long time = System.nanoTime() - start;
+             //int runs = 1000 * 1000;
+             //double elapsedSeconds = time / 1_000_000_000.0;
+             //((double)time / runs) / 1000;
+
             do { // выполняем процесс формирования слова в цикле
                 stringBuilder = new StringBuilder();
                // String myWord;
                 for (int i = 0; i < userWord.length(); i++) {
                     int randomlLeter = random.nextInt(alphabetArr.length); // извлекаем случайную букву
                     stringBuilder.append(alphabetArr[randomlLeter]); // формируем строку из букв
-                    countOfChances++;
                 }
+                countOfChances++;
             } while (!userWord.equals(stringBuilder.toString()));  //всё вышеперечисленное выполняем до тех пор пока введённое и сгенерированное слова совпадут
 
             long time = System.nanoTime() - start;
+            double elapsedSeconds = time / 1_000_000_000.0;
             String numberOfChancesToFormat = String.format("%, d", countOfChances);
-            System.out.println(StringStore.averageTime + ((double) time / runs) / 1000 + StringStore.sec);
+            System.out.println(StringStore.averageTime + elapsedSeconds + StringStore.sec);
             System.out.println(StringStore.didIt + numberOfChancesToFormat + StringStore.trying);
         }
 

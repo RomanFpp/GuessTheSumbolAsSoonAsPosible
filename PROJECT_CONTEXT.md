@@ -78,13 +78,13 @@ GuessTheSumbolAsSoonAsPosible/
 
 `StringStore.java` contains Russian output strings.
 
-An obsolete import was removed from the project:
+The obsolete import below is currently commented out in `src/GTSASAP.java`:
 
 ```java
-import com.sun.xml.internal.ws.wsdl.writer.document.Import;
+//import com.sun.xml.internal.ws.wsdl.writer.document.Import;
 ```
 
-The program currently runs successfully on JDK 25.
+The program runs successfully on JDK 25.
 
 ---
 
@@ -107,6 +107,8 @@ The alphabet contains Latin characters, Cyrillic characters, digits, space, etc.
 Important Unicode detail:
 
 The alphabet contains both Latin `e` (`U+0065`) and Cyrillic `е` (`U+0435`). They are different Java `char` values and therefore different possible characters.
+
+On the pushed `fix-benchmark-counter` branch, the short-word path (`length <= 5`) now counts one complete generated candidate per attempt, uses a `long` counter, and converts elapsed nanoseconds directly to seconds. The longer-word path still has its separate character-by-character logic and older timing expression.
 
 ---
 
@@ -169,6 +171,15 @@ optimization-no-duplicates
 
 Do not mix unrelated optimization experiments into one branch unless there is a clear reason.
 
+### Current branch snapshot (2026-10-04)
+
+- `master` remains at `78fc1ae` (`Add project context for Codex`).
+- `fix-benchmark-counter` is pushed to `origin` at `9ec80fc` (`Fix benchmark attempt counting and timing`), one commit ahead of `master`; it has not been merged.
+- The commit changes only `src/GTSASAP.java`.
+- The working tree also has local, uncommitted changes in `.idea/misc.xml` and the two compiled files under `out/production/GuessTheSumbolAsSoonAsPosible/`. These are not part of the feature commit and should not be included unless intentionally desired.
+- This update to `PROJECT_CONTEXT.md` is also a working-tree change, separate from the feature commit.
+- The short-word branch changes include the commented-out obsolete import, the `long` candidate counter, moving its increment after the inner character-generation loop, and explicit nanosecond-to-second conversion. Old `runs` lines are left commented in the source as learning notes.
+
 ---
 
 ## Optimization / benchmarking project
@@ -206,30 +217,30 @@ measure → form hypothesis → change one thing → measure again → compare
 
 ## Current benchmark observations
 
-These are observations from IntelliJ IDEA using the current implementation and target `Turbo`.
+These are observations from IntelliJ IDEA using normal Run and target `Turbo`. Random search time varies. Results before the counter correction counted generated characters, not complete candidate words; for a five-character target, one candidate produced five counter increments. Those legacy results must not be compared directly with the corrected candidate counts.
 
 ### Run 1
 
 ```text
-Attempts: 47,754,879
+Generated character selections (legacy counter): 47,754,879
 Time:     1055.7439929 s
-Speed:    ~45,233 attempts/s
+Speed:    ~45,233 character selections/s
 ```
 
 ### Run 2
 
 ```text
-Attempts: 107,615,504
+Generated character selections (legacy counter): 107,615,504
 Time:     ~131.334658 s
-Speed:    ~819,399 attempts/s
+Speed:    ~819,399 character selections/s
 ```
 
 ### Run 3
 
 ```text
-Attempts: 552,755,692
+Generated character selections (legacy counter): 552,755,692
 Time:     216.401713 s
-Speed:    ~2,554,304 attempts/s
+Speed:    ~2,554,304 character selections/s
 ```
 
 ### Run 4
@@ -238,14 +249,28 @@ Aborted because it was taking too long.
 
 No numeric result should be used in benchmark statistics.
 
+### Corrected counter and timing run
+
+After moving the increment outside the inner character loop, an initial run took `1314.8738627 s` but printed `-179,228,020` because the counter was still an `int`; that count is invalid due to overflow.
+
+After changing the counter to `long`, the completed `Turbo` run was:
+
+```text
+Candidate attempts: 8,929,289,669
+Time:               1203 s
+Speed:              ~7.42 million candidates/s
+```
+
+This is one corrected run, not a stable average. It should not be taken as proof that changing `int` to `long` made the algorithm faster; the two runs are not a controlled performance comparison, and earlier results used a different counter meaning.
+
 ### Separate observation: `Turb`
 
 This is a different test and must not be mixed into the `Turbo` benchmark.
 
 ```text
-Attempts: 36,803,888
+Generated character selections (legacy counter): 36,803,888
 Time:     1.0824593 s
-Speed:    ~34.0 million attempts/s
+Speed:    ~34.0 million character selections/s
 ```
 
 The large variation in attempts is expected because random search has a probabilistic runtime.
@@ -256,26 +281,25 @@ The large variation in attempts/second is a separate issue that should be invest
 
 ## Important timing code observation
 
-The program contains timing code similar to:
+The short-word path (`userWord.length() <= 5`) now measures elapsed time as:
 
 ```java
 long time = System.nanoTime() - start;
+double elapsedSeconds = time / 1_000_000_000.0;
 String numberOfChancesToFormat = String.format("%, d", countOfChances);
-System.out.println(StringStore.averageTime + ((double) time / runs) / 1000 + StringStore.sec);
+System.out.println(StringStore.averageTime + elapsedSeconds + StringStore.sec);
 System.out.println(StringStore.didIt + numberOfChancesToFormat + StringStore.trying);
 ```
 
-There is a variable similar to:
+The short-word counter is a `long` and increments once after each complete candidate string has been generated. The old `runs` declaration and formula remain commented out in the source as learning notes; they are not active code.
+
+The longer-word path still has a separate variable named `run` and uses the older expression `((double) time / run) / 1000`. In that path, `run` is not an actual repetition count; together with `/ 1000` it acts as a conversion factor from nanoseconds to seconds. Do not assume `run` and the commented short-word `runs` are the same variable.
 
 ```java
-int runs = 1000 * 1000;
+int run = 1000000;
 ```
 
-There is also another variable named `run` in another block.
-
-Do not assume `run` and `runs` are the same variable.
-
-The meaning and role of `runs` should be verified by inspecting the surrounding code before changing the timing logic.
+The longer-word timing and its loop behavior remain separate work to review later.
 
 ---
 
@@ -396,14 +420,11 @@ Prefer small, understandable steps over large rewrites.
 
 ## Current immediate direction
 
-The immediate next step is to add this file to the repository:
+The next task is to review the IntelliJ IDEA inspections currently reported in the code: 3 `bug` findings, 6 yellow warnings, and 1 dark-yellow warning (counts reported by Roman on 2026-10-04; individual messages have not yet been reviewed). Inspect each finding and its explanation, determine whether it indicates a real defect or a suggestion, then address them one at a time. Roman should make the code changes himself with guidance; do not suppress findings without understanding them.
 
-```text
-PROJECT_CONTEXT.md
-```
+The `fix-benchmark-counter` branch is pushed but not merged. Review the branch and decide whether to open a pull request or otherwise merge it into `master`; keep `master` unchanged until that decision. Keep the current local `.idea` and `out` changes out of commits unless they are intentionally needed.
 
-Then commit it to Git.
+For the next optimization work, use the corrected candidate counter and elapsed-seconds output as the measurement baseline. Change one meaningful thing at a time and use a separate branch for each unrelated experiment. The planned no-duplicate-candidates experiment remains future work.
 
-After that, Codex can read this file when working in the repository and will have the essential project context even though it does not automatically receive the entire ChatGPT conversation history.
-
-When the project changes significantly, update this file.
+The project-context file is already committed on `master`. Update it again when the code, branch status, benchmark results, or plans change significantly.
+The redundant initial StringBuilder initialization was removed. The candidate comparison now uses userWord.contentEquals(stringBuilder) instead of converting the builder with toString(). Latest Turbo run: 16,088,098,890 candidate attempts in 1,828.95 seconds.

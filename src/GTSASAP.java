@@ -1,13 +1,11 @@
-//import com.sun.xml.internal.ws.wsdl.writer.document.Import;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Random;
 
 public class GTSASAP {
-    public static void main(String[] args) throws IOException {
-        StringBuilder stringBuilder = new StringBuilder();
+        public static void main(String[] args) throws IOException {
+        StringBuilder stringBuilder;
         BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
         Random random = new Random();
         System.out.println(StringStore.greeting);
@@ -21,10 +19,6 @@ public class GTSASAP {
         if (userWord.length() <= 5) {
              long countOfChances = 0;
              long start = System.nanoTime();
-             //long time = System.nanoTime() - start;
-             //int runs = 1000 * 1000;
-             //double elapsedSeconds = time / 1_000_000_000.0;
-             //((double)time / runs) / 1000;
 
             do { // выполняем процесс формирования слова в цикле
                 stringBuilder = new StringBuilder();
@@ -34,7 +28,7 @@ public class GTSASAP {
                     stringBuilder.append(alphabetArr[randomlLeter]); // формируем строку из букв
                 }
                 countOfChances++;
-            } while (!userWord.equals(stringBuilder.toString()));  //всё вышеперечисленное выполняем до тех пор пока введённое и сгенерированное слова совпадут
+            } while (!userWord.contentEquals(stringBuilder));  //всё вышеперечисленное выполняем до тех пор пока введённое и сгенерированное слова совпадут
 
             long time = System.nanoTime() - start;
             double elapsedSeconds = time / 1_000_000_000.0;
@@ -56,7 +50,7 @@ public class GTSASAP {
                     do {
                         stringBuilder = new StringBuilder(); // переменная для хранения случайных символов
                         stringBuilder.append(alphabetArr[random.nextInt(alphabetArr.length)]); // выборка символа из алфавита по случайному числу
-                    } while (!String.valueOf(testedWord[x]).equals(stringBuilder.toString()));
+                    } while (!String.valueOf(testedWord[x]).contentEquals(stringBuilder));
 
                 }
                 long time = System.nanoTime() - starts;

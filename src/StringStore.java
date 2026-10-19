@@ -11,5 +11,6 @@ public class StringStore {
     public static final String symbol = " знак.";
     public static final String averageTimeForLongWord = "На посимвольное угадывание всех букв и/или цифр из вашей фразы понадобилось";
     public static final String nowWeDo = "Сейчас я угадываю ";
+    public static final String maxOfThreads = "Максимум одновременно работавших потоков: ";
 
 }

@@ -171,14 +171,14 @@ optimization-no-duplicates
 
 Do not mix unrelated optimization experiments into one branch unless there is a clear reason.
 
-### Current branch snapshot (2026-10-04)
+### Current branch snapshot (2026-10-06)
 
 - `master` remains at `78fc1ae` (`Add project context for Codex`).
-- `fix-benchmark-counter` is pushed to `origin` at `9ec80fc` (`Fix benchmark attempt counting and timing`), one commit ahead of `master`; it has not been merged.
-- The commit changes only `src/GTSASAP.java`.
+- `fix-benchmark-counter` is pushed to `origin` at `a69427e` (`Update project context with IDEA inspection plan. Optimize candidate comparison and update project context`), two commits ahead of `master`; it is intentionally kept separate and has not been merged.
+- Across those two branch commits, `src/GTSASAP.java` and `PROJECT_CONTEXT.md` differ from `master`.
 - The working tree also has local, uncommitted changes in `.idea/misc.xml` and the two compiled files under `out/production/GuessTheSumbolAsSoonAsPosible/`. These are not part of the feature commit and should not be included unless intentionally desired.
 - This update to `PROJECT_CONTEXT.md` is also a working-tree change, separate from the feature commit.
-- The short-word branch changes include the commented-out obsolete import, the `long` candidate counter, moving its increment after the inner character-generation loop, and explicit nanosecond-to-second conversion. Old `runs` lines are left commented in the source as learning notes.
+- The short-word branch changes include the commented-out obsolete import, the `long` candidate counter, moving its increment after the inner character-generation loop, explicit nanosecond-to-second conversion, removing the unused initial `StringBuilder` allocation, and comparing with `userWord.contentEquals(stringBuilder)` instead of converting the builder with `toString()`.
 
 ---
 
@@ -262,6 +262,18 @@ Speed:              ~7.42 million candidates/s
 ```
 
 This is one corrected run, not a stable average. It should not be taken as proof that changing `int` to `long` made the algorithm faster; the two runs are not a controlled performance comparison, and earlier results used a different counter meaning.
+
+### Comparison optimization run
+
+After removing the redundant initial `StringBuilder` allocation and replacing `userWord.equals(stringBuilder.toString())` with `userWord.contentEquals(stringBuilder)`, Roman ran `Turbo` again:
+
+```text
+Candidate attempts: 16,088,098,890
+Time:               1828.9486857 s
+Speed:              ~8.80 million candidates/s
+```
+
+This was one run after two code changes. The observed throughput was about 18.5% higher than the previous single run, but the result does not isolate which change affected speed and is not a stable benchmark conclusion.
 
 ### Separate observation: `Turb`
 
@@ -420,11 +432,32 @@ Prefer small, understandable steps over large rewrites.
 
 ## Current immediate direction
 
-The next task is to review the IntelliJ IDEA inspections currently reported in the code: 3 `bug` findings, 6 yellow warnings, and 1 dark-yellow warning (counts reported by Roman on 2026-10-04; individual messages have not yet been reviewed). Inspect each finding and its explanation, determine whether it indicates a real defect or a suggestion, then address them one at a time. Roman should make the code changes himself with guidance; do not suppress findings without understanding them.
+The IDEA inspection review was completed on 2026-10-06. The redundant `StringBuilder` initialization and `toString()` conversion were addressed. The suggestion to replace user-facing `System.out.println` calls with debugger logpoints was reviewed and intentionally rejected: logpoints only print during Debug, while these messages are part of normal Run behavior. Roman reports that no findings remain from this inspection batch.
 
-The `fix-benchmark-counter` branch is pushed but not merged. Review the branch and decide whether to open a pull request or otherwise merge it into `master`; keep `master` unchanged until that decision. Keep the current local `.idea` and `out` changes out of commits unless they are intentionally needed.
+Keep `fix-benchmark-counter` as a separate pushed version; do not open a pull request or merge it into `master`. `master` remains the stable/control version. Keep the current local `.idea` and `out` changes out of commits unless they are intentionally needed.
 
-For the next optimization work, use the corrected candidate counter and elapsed-seconds output as the measurement baseline. Change one meaningful thing at a time and use a separate branch for each unrelated experiment. The planned no-duplicate-candidates experiment remains future work.
+The next suitable code-review task is to inspect the longer-word path (`userWord.length() > 5`), especially which characters it checks and how it measures time. Roman should make any code changes himself with guidance, on a separate branch. Use the corrected candidate counter and elapsed-seconds output in the short-word path as the benchmark baseline. The planned no-duplicate-candidates experiment and JavaFX desktop application remain future work.
 
-The project-context file is already committed on `master`. Update it again when the code, branch status, benchmark results, or plans change significantly.
-The redundant initial StringBuilder initialization was removed. The candidate comparison now uses userWord.contentEquals(stringBuilder) instead of converting the builder with toString(). Latest Turbo run: 16,088,098,890 candidate attempts in 1,828.95 seconds.
+The original project-context file is committed on `master`; this branch also contains its updates. Update it again when the code, branch status, benchmark results, or plans change significantly.
+
+### Multithreading: short-word search
+
+The search for words of up to five characters now uses a fixed thread pool sized to the number of processors reported by the JVM. Workers generate candidates independently with `ThreadLocalRandom`. `AtomicBoolean` stops the workers when the word is found, `LongAdder` counts attempts, and `CountDownLatch` lets the main thread wait for the result. The executor is closed before the results are printed.
+
+The maximum observed number of simultaneously active workers was 12.
+
+Benchmark results for `Turbo`:
+
+- Multithreaded run 1: 601.59 seconds, 24,643,613,241 attempts (~41.0 million attempts/second).
+- Multithreaded run 2: 750.68 seconds, 30,897,174,381 attempts (~41.2 million attempts/second).
+- Previous single-threaded run: 1,828.95 seconds, 16,088,098,890 attempts (~8.8 million attempts/second).
+
+The attempt counts vary because candidates are generated randomly. These runs show similar throughput in the two multithreaded measurements and about 4.7 times the throughput of the recorded single-threaded run; they are individual measurements, not a controlled benchmark.
+
+Multithreading currently applies only to the search for words up to five characters. The longer-word path has not been changed.
+
+### Next steps
+
+- Review IDEA inspections on the multithreaded code.
+- Check that the longer-word path still behaves as before.
+- Run additional comparable measurements if more confidence in the performance difference is needed.

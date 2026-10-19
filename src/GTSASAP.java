@@ -2,9 +2,16 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Random;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.LongAdder;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class GTSASAP {
-        public static void main(String[] args) throws IOException {
+        public static void main(String[] args) throws IOException, InterruptedException {
         StringBuilder stringBuilder;
         BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
         Random random = new Random();
@@ -17,22 +24,50 @@ public class GTSASAP {
 
 
         if (userWord.length() <= 5) {
-             long countOfChances = 0;
+            int threadCount = Runtime.getRuntime().availableProcessors();
+            AtomicBoolean found = new AtomicBoolean(false);
+            LongAdder attempts = new LongAdder();
+            CountDownLatch finished = new CountDownLatch(1);
+            ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+            AtomicInteger activeWorkers = new AtomicInteger(0);
+            AtomicInteger maxActiveWorkers = new AtomicInteger(0);
              long start = System.nanoTime();
 
-            do { // выполняем процесс формирования слова в цикле
-                stringBuilder = new StringBuilder();
-               // String myWord;
-                for (int i = 0; i < userWord.length(); i++) {
-                    int randomlLeter = random.nextInt(alphabetArr.length); // извлекаем случайную букву
-                    stringBuilder.append(alphabetArr[randomlLeter]); // формируем строку из букв
-                }
-                countOfChances++;
-            } while (!userWord.contentEquals(stringBuilder));  //всё вышеперечисленное выполняем до тех пор пока введённое и сгенерированное слова совпадут
+            for (int i = 0; i < threadCount; i++) {
+                executor.submit(() -> {
+                    int currentActive = activeWorkers.incrementAndGet();
+                    maxActiveWorkers.accumulateAndGet(currentActive, Math::max);
+
+                    try {
+                        while (!found.get()) {
+                            StringBuilder candidate = new StringBuilder();
+
+                            for (int j = 0; j < userWord.length(); j++) {
+                                int letterIndex =
+                                        ThreadLocalRandom.current().nextInt(alphabetArr.length);
+                                candidate.append(alphabetArr[letterIndex]);
+                            }
+
+                            attempts.increment();
+
+                            if (userWord.contentEquals(candidate)
+                                    && found.compareAndSet(false, true)) {
+                                finished.countDown();
+                            }
+                        }
+                    } finally {
+                        activeWorkers.decrementAndGet();
+                    }
+                });
+            }
+            finished.await();
+            executor.close();
+            System.out.println(
+                    StringStore.maxOfThreads + maxActiveWorkers.get());
 
             long time = System.nanoTime() - start;
             double elapsedSeconds = time / 1_000_000_000.0;
-            String numberOfChancesToFormat = String.format("%, d", countOfChances);
+            String numberOfChancesToFormat = String.format("%,d", attempts.sum());
             System.out.println(StringStore.averageTime + elapsedSeconds + StringStore.sec);
             System.out.println(StringStore.didIt + numberOfChancesToFormat + StringStore.trying);
         }

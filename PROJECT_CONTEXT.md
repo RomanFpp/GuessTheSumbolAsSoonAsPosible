@@ -461,3 +461,18 @@ Multithreading currently applies only to the search for words up to five charact
 - Review IDEA inspections on the multithreaded code.
 - Check that the longer-word path still behaves as before.
 - Run additional comparable measurements if more confidence in the performance difference is needed.
+- ## Current implementation — October 22, 2026
+
+- The application has a Swing desktop interface with a word input field, Start and Stop buttons, and labels for attempts, elapsed time, and maximum active worker threads.
+- Input is limited to 1–5 characters. The application rejects empty input, words longer than five characters, and characters that are not present in `ALPHABET`.
+- The search runs in a `SwingWorker` so the interface remains responsive.
+- `searchWord` uses a fixed thread pool sized according to `Runtime.getRuntime().availableProcessors()`. Worker threads generate random candidates independently. `LongAdder` counts attempts, and atomic flags coordinate success and stop requests.
+- The Stop button requests a cooperative stop. The search checks for the request while generating candidates and waiting for completion, then returns the attempts, elapsed time, and maximum number of active workers reached so far.
+- The interface displays elapsed time in minutes and seconds. Its input controls are arranged in one row, with the search results below.
+- A runnable JAR artifact is configured in IntelliJ IDEA. Its main class is `GTSASAP`, and the manifest is located at `src/META-INF/MANIFEST.MF`.
+
+## Next steps
+
+- Review the changes on `gui-short-search` and commit and push the updated source and project context.
+- Rebuild the JAR after the final source changes and confirm that the desktop shortcut starts that version.
+- After reviewing the branch, decide whether to merge it into `master`.

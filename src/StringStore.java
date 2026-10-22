@@ -11,5 +11,15 @@ public class StringStore {
     public static final String symbol = " знак.";
     public static final String averageTimeForLongWord = "На посимвольное угадывание всех букв и/или цифр из вашей фразы понадобилось";
     public static final String nowWeDo = "Сейчас я угадываю ";
+    public static final String maxOfThreads = "Максимум одновременно работавших потоков: ";
+    public static final String guessAsap = "Угадай слово как можно скорее";
+    public static final String startSearching = "Начать поиск";
+    public static final String trues = "Попытки: —";
+    public static final String time = "Время: —";
+    public static final String threads = "Потоки: —";
+    public static final String messageInText = "Введи слово длиной от 1 до 5 символов";
+    public static final String accepted = "Ввод принят:";
+    public static final String strangeSymbol= "В слове есть символ, которого нет в алфавите.";
+    public static final String stop = "Остановить";
 
 }
